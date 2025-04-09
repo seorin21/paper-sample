@@ -1,77 +1,78 @@
+import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
+
 plugins {
     idea
     alias(libs.plugins.kotlin)
-    alias(libs.plugins.dokka)
 }
+
+val pluginName: String by extra(rootProject.name.split('-').joinToString("") { it.replaceFirstChar { char -> char.uppercase() } })
+val javaTarget = 17
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
+        languageVersion.set(JavaLanguageVersion.of(javaTarget))
     }
 }
 
-allprojects {
-    repositories {
-        mavenCentral()
-    }
+repositories {
+    mavenCentral()
+    maven("https://repo.papermc.io/repository/maven-public/")
 }
 
-subprojects {
-    apply(plugin = rootProject.libs.plugins.kotlin.get().pluginId)
-
-    repositories {
-        maven("https://repo.papermc.io/repository/maven-public/")
-    }
-
-    dependencies {
-        compileOnly(rootProject.libs.paper)
-
-        implementation(kotlin("stdlib"))
-        implementation(kotlin("reflect"))
-    }
+dependencies {
+    compileOnly(libs.paper)
+    implementation(kotlin("stdlib"))
+    implementation(kotlin("reflect"))
 }
 
-listOf(projectApi, projectCore).forEach { module ->
-    with(module) {
-        apply(plugin = rootProject.libs.plugins.dokka.get().pluginId)
+extra.apply {
+    val pluginName = rootProject.name.split('-').joinToString("") { it.replaceFirstChar { char -> char.uppercase() } }
 
-        tasks {
-            create<Jar>("sourcesJar") {
-                archiveClassifier.set("sources")
-                from(sourceSets["main"].allSource)
+    set("pluginName", pluginName)
+    set("packageName", rootProject.name.replace("-", ""))
+    set("kotlinVersion", libs.versions.kotlin.get())
+    set("paperVersion", libs.versions.paper.get().split('.').take(2).joinToString(separator = ".").replace("-R0", "")) //.replace("-R0", "") << 1.x.x가 아닌 1.x 버전인 경우, R0이 포함될 수 있음.
+    set("pluginLibraries", "")
+
+    val pluginLibraries = LinkedHashSet<String>()
+
+    configurations.findByName("implementation")?.allDependencies?.forEach { dependency ->
+        val group = dependency.group ?: error("group is null")
+        var name = dependency.name ?: error("name is null")
+        var version = dependency.version
+
+        if (dependency !is ProjectDependency) {
+            if (group == "org.jetbrains.kotlin" && version == null) {
+                version = getKotlinPluginVersion()
             }
 
-            create<Jar>("dokkaJar") {
-                archiveClassifier.set("javadoc")
-                dependsOn("dokkaHtml")
+            requireNotNull(version) { "version is null" }
+            require(version != "latest.release") { "version is latest.release" }
 
-                from("$buildDir/dokka/html/") {
-                    include("**")
-                }
-            }
+            pluginLibraries += "$group:$name:$version"
+            set("pluginLibraries", pluginLibraries.joinToString("\n  ") { "- '$it'" })
         }
     }
 }
 
 tasks {
-    register<DefaultTask>("setupModules") {
-        doLast {
-            val defaultPrefix = "sample"
-            val projectPrefix = rootProject.name
+    processResources {
+        filesMatching("*.yml") {
+            expand(project.properties)
+            expand(extra.properties)
+        }
+    }
 
-            if (defaultPrefix != projectPrefix) {
-                fun rename(suffix: String) {
-                    val from = "$defaultPrefix-$suffix"
-                    val to = "$projectPrefix-$suffix"
-                    file(from).takeIf { it.exists() }?.renameTo(file(to))
-                }
-
-                rename("api")
-                rename("core")
-                rename("dongle")
-                rename("plugin")
-                rename("publish")
-            }
+    register<Jar>("devJar") {
+        archiveBaseName.set(pluginName)
+        archiveClassifier.set("dev")
+        from(sourceSets.main.get().output)
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }.also { jar ->
+        register<Copy>("testDevJar") {
+            val pluginsDir = rootProject.file(".server/plugins-dev")
+            from(jar)
+            into(pluginsDir)
         }
     }
 }

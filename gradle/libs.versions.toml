@@ -4,8 +4,6 @@ dokka = "2.0.0"
 paper = "1.20-R0.1-SNAPSHOT"
 paperweight = "1.7.7"
 coroutines = "1.10.1"
-json = "1.8.0"
-protobuf = "1.8.0"
 
 [libraries]
 paper = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }

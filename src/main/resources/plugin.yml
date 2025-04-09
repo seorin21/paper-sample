@@ -1,6 +1,6 @@
 name: '${pluginName}'
 version: '${version}'
-main: '${group}.${packageName}.plugin.${pluginName}Plugin'
+main: '${group}.${packageName}.${pluginName}Plugin'
 api-version: '${paperVersion}'
 libraries:
   ${pluginLibraries}

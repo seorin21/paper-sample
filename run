@@ -1,8 +1,8 @@
 #!/bin/bash
 
 classifier="dev"
-[[ $1 == "reobf" ]] && classifier="reobf"
-[[ $1 == "clip" ]] && classifier="clip"
+#[[ $1 == "reobf" ]] && classifier="reobf"
+#[[ $1 == "clip" ]] && classifier="clip"
 
 ####################### Configuration Section #####################
 
